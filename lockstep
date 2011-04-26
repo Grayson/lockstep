@@ -1,0 +1,148 @@
+#!/usr/bin/env python
+# 2011, Grayson Hansard <info@fromconcentratesoftware.com>
+
+import hashlib
+import pickle
+import getopt
+import sys
+from os import path
+from shutil import copy2
+
+PREFS_PATH = path.expanduser('~/Library/Preferences/com.fromconcentratesoftware.lockstep.pickle')
+
+def md5DigestForFile(path):
+	if not path: raise NameError('missing parameters')
+	m = hashlib.md5()
+	f = file(path)
+	if not f: raise IOError('file not found')
+	while True:
+		data = f.read(128)
+		if not data: break
+		m.update(data)
+	return m.digest()
+
+def fileAtPathMatchesHash(filepath, expected_hash):
+	"""Checks a file at _path_ to see if it has been modified.  Returns True if modified, False if unchanged."""
+	if path == None or expected_hash == None: raise NameError('missing parameters')
+	if not path.exists(filepath): return False
+	return expected_hash == md5DigestForFile(filepath)
+
+def storeNewTargetForSource(target, source):
+	"""Given a target and a source, save the target as a new file to check and replace when the source is updated."""
+	if target == None or source == None: raise NameError('missing parameters')
+	expanded_target = path.expanduser(target)
+	expaneded_source = path.expanduser(source)
+	prefs = None
+	if not path.exists(source):
+		print "The source file does not exists."
+		return
+	try:
+		f = open(PREFS_PATH, 'r')
+	except Exception, e:
+		print e
+	
+	try:
+		prefs = pickle.load(f)
+	except Exception, e:
+		prefs = {}
+	
+	if prefs.has_key(source): pref = prefs[source]
+	else: pref = []
+	
+	if not target in pref: 
+		pref.append(target)
+	prefs[source] = pref
+	pickle.dump(prefs, open(PREFS_PATH, 'w'))
+
+def overwriteFileWithFile(target, source):
+	"""Replaces the file at _target_ with a copy from _source_."""
+	try:
+		copy2(source, target)
+	except Exception, e:
+		print "Error: Could not copy file %s to %s" % (source, target)
+
+def performChecksForSourceOnTargets(source, targets):
+	"""Given a source file, compare it to all of the given targets."""
+	try:
+		digest = md5DigestForFile(source)
+	except Exception, e:
+		print "Error: %s" % (e)
+	
+	for target in targets:
+		if not fileAtPathMatchesHash(target, digest):
+			overwriteFileWithFile(target, source)
+
+def lockstep():
+	"""Main thrust of the application.  Begins the file checks, kicking off replacements when necessary."""
+	try:
+		f = file(PREFS_PATH)
+	except Exception, e:
+		print "Error: No files configured to be overseen."
+		return
+	prefs = pickle.load(f)
+	for source in prefs:
+		targets = prefs[source]
+		if not targets: continue
+		performChecksForSourceOnTargets(source, targets)
+
+def printPrefs():
+	prefs = None
+	try:
+		prefs = pickle.load(open(PREFS_PATH))
+	except Exception, e:
+		print "Error reading preferences."
+		return
+	for src in prefs:
+		print "%s:" % (src)
+		for target in prefs[src]:
+			print "	%s" % (target)
+
+	
+def help():
+	print """
+lockstep v%s.
+
+	To add a file:
+		lockstep -s /path/to/source -t /path/to/target
+
+	Run without arguments to match files.
+	
+	Flags:
+		-s, --source	A source file to synchronize to other locations.
+		-t, --target	The target location for a file to be 
+				synchronized, including filename.
+		-h, --help	View this help documentation.
+""" % ('1.0')
+
+
+def main():
+	try:
+		opts, args = getopt.getopt(sys.argv[1:], 'ht:s:', ('help', 'target', 'source', 'showfiles'))
+	except Exception, e:
+		print e
+	
+	show_help = False
+	show_files = False
+	target = None
+	source = None
+	for opt in opts:
+		flag = opt[0]
+		if flag == '-h' or flag == '--help': show_help = True
+		elif flag == '-t' or flag == '--target': target = opt[1]
+		elif flag == '-s' or flag == '--source': source = opt[1]
+		elif flag == '--showfiles': showfiles = True
+	
+	if show_help:
+		help()
+		return
+	elif showfiles:
+		printPrefs()
+		return
+	elif target and source:
+		print "Adding new association for file %s" % (source)
+		storeNewTargetForSource(target, source)
+	else:
+		lockstep()
+
+if __name__ == '__main__':
+	main()
