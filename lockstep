@@ -128,9 +128,7 @@ def deleteAssocations(sources, targets):
 		pickle.dump(prefs, open(PREFS_PATH, 'w'))
 	except Exception, e:
 		print "Error writing out preferences."
-	
-	
-	pass
+
 
 def help():
 	print """
@@ -173,12 +171,15 @@ def parseArgs(args):
 
 def main():
 	args = parseArgs(sys.argv[1:])
-	
+		
 	show_help = args.has_key('-h') or args.has_key('--help')
 	show_files = args.has_key('--showfiles')
 	should_delete = args.has_key('-d') or args.has_key('--delete')
 	targets = args['-t'] if args.has_key('-t') else args['--target'] if args.has_key('--target') else None
 	sources = args['-s'] if args.has_key('-s') else args['--source'] if args.has_key('--source') else None
+	
+	if targets: targets = [path.abspath(x) for x in targets]
+	if sources: sources = [path.abspath(x) for x in sources]
 	
 	if show_help:
 		help()
