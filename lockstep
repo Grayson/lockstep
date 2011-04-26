@@ -106,6 +106,9 @@ def printPrefs():
 
 def deleteAssocations(sources, targets):
 	"""Deletes the assocations between files"""
+	if sources == None:
+		print "Error: Must delete files associated with some source.  Don't forget the -s or --source arguments."
+		return
 	prefs = None
 	try:
 		prefs = pickle.load(open(PREFS_PATH))
